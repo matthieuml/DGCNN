@@ -9,7 +9,6 @@
 
 
 import os
-import sys
 import glob
 import h5py
 import numpy as np

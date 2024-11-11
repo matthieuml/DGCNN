@@ -8,11 +8,6 @@
 """
 
 
-import os
-import sys
-import copy
-import math
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -54,20 +49,21 @@ def get_graph_feature(x, k=20, idx=None):
 
 
 class PointNet(nn.Module):
-    def __init__(self, args, output_channels=40):
+    def __init__(self, emb_dims, output_channels=40):
         super(PointNet, self).__init__()
-        self.args = args
+        self.emb_dims = emb_dims
+
         self.conv1 = nn.Conv1d(3, 64, kernel_size=1, bias=False)
         self.conv2 = nn.Conv1d(64, 64, kernel_size=1, bias=False)
         self.conv3 = nn.Conv1d(64, 64, kernel_size=1, bias=False)
         self.conv4 = nn.Conv1d(64, 128, kernel_size=1, bias=False)
-        self.conv5 = nn.Conv1d(128, args.emb_dims, kernel_size=1, bias=False)
+        self.conv5 = nn.Conv1d(128, emb_dims, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm1d(64)
         self.bn2 = nn.BatchNorm1d(64)
         self.bn3 = nn.BatchNorm1d(64)
         self.bn4 = nn.BatchNorm1d(128)
-        self.bn5 = nn.BatchNorm1d(args.emb_dims)
-        self.linear1 = nn.Linear(args.emb_dims, 512, bias=False)
+        self.bn5 = nn.BatchNorm1d(emb_dims)
+        self.linear1 = nn.Linear(emb_dims, 512, bias=False)
         self.bn6 = nn.BatchNorm1d(512)
         self.dp1 = nn.Dropout()
         self.linear2 = nn.Linear(512, output_channels)
@@ -86,16 +82,17 @@ class PointNet(nn.Module):
 
 
 class DGCNN(nn.Module):
-    def __init__(self, args, output_channels=40):
+    def __init__(self, k, emb_dims, dropout, output_channels=40):
         super(DGCNN, self).__init__()
-        self.args = args
-        self.k = args.k
+        self.k = k
+        self.emb_dims = emb_dims
+        self.dropout = dropout
         
         self.bn1 = nn.BatchNorm2d(64)
         self.bn2 = nn.BatchNorm2d(64)
         self.bn3 = nn.BatchNorm2d(128)
         self.bn4 = nn.BatchNorm2d(256)
-        self.bn5 = nn.BatchNorm1d(args.emb_dims)
+        self.bn5 = nn.BatchNorm1d(emb_dims)
 
         self.conv1 = nn.Sequential(nn.Conv2d(6, 64, kernel_size=1, bias=False),
                                    self.bn1,
@@ -109,15 +106,15 @@ class DGCNN(nn.Module):
         self.conv4 = nn.Sequential(nn.Conv2d(128*2, 256, kernel_size=1, bias=False),
                                    self.bn4,
                                    nn.LeakyReLU(negative_slope=0.2))
-        self.conv5 = nn.Sequential(nn.Conv1d(512, args.emb_dims, kernel_size=1, bias=False),
+        self.conv5 = nn.Sequential(nn.Conv1d(512, emb_dims, kernel_size=1, bias=False),
                                    self.bn5,
                                    nn.LeakyReLU(negative_slope=0.2))
-        self.linear1 = nn.Linear(args.emb_dims*2, 512, bias=False)
+        self.linear1 = nn.Linear(emb_dims*2, 512, bias=False)
         self.bn6 = nn.BatchNorm1d(512)
-        self.dp1 = nn.Dropout(p=args.dropout)
+        self.dp1 = nn.Dropout(p=dropout)
         self.linear2 = nn.Linear(512, 256)
         self.bn7 = nn.BatchNorm1d(256)
-        self.dp2 = nn.Dropout(p=args.dropout)
+        self.dp2 = nn.Dropout(p=dropout)
         self.linear3 = nn.Linear(256, output_channels)
 
     def forward(self, x):
